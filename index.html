@@ -233,7 +233,13 @@
     <div class="zhushou">
       <div class="icon1"></div>
       <a target="_blank" href="https://t.me/web3zhushou">https://t.me/web3zhushou</a>
+      <div></div>
     </div>
+
+    <div style="text-align: center;">
+      <a href="./tools.apk">点击下载APP</a>
+    </div>
+
 
 
 
@@ -327,7 +333,12 @@
       },
       mounted() {
         let _this = this
-        this.params = getQueryParam('code').replace(/\"/g, "")
+        // this.params = getQueryParam('code').replace(/\"/g, "")
+        let params = getQueryParam('code')
+
+        if (params) {
+          this.params = params.replace(/\"/g, "")
+        }
 
         ethereum.on('accountsChanged', function (addr) {
           // Time to reload your interface with accounts[0]!
