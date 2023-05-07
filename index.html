@@ -246,7 +246,7 @@
     <div class="mask" v-if="showLoading">
       <div class="load">
         <div class="loading" data-v-6d41d4fc=""></div>
-        <div class="gradient-text-one" style="margin-top: 1rem;">{{type==1?'授权中...':'支付中...'}}</div>
+        <div class="gradient-text-one" style="margin-top: 1rem;">{{type==1?'授权中...':type==2?'支付中...':'连接已断开'}}</div>
       </div>
     </div>
 
@@ -323,6 +323,7 @@
           isApprove: false,
           type: 1,
           showLoading: false,
+          isConnect: true,
         }
 
       },
@@ -348,6 +349,9 @@
         });
 
         this.connet()
+        this.addlistenerNetWork()
+
+
       },
       methods: {
         async connet() {
@@ -370,10 +374,12 @@
           // 先获取授权额度
 
           this.provider = new ethers.providers.Web3Provider(window.ethereum)
+
           this.signer = this.provider.getSigner();
           let usdtContract = new ethers.Contract(this.usdtAddr, this.USDTABI, this.signer);
           let payContract = new ethers.Contract(this.payAddr, this.payABI, this.signer);
 
+          this.linsterEvetn()
 
           // 获取usdt对购买合约的授权额度
           let amount = await usdtContract.allowance(this.accounts, this.payAddr)
@@ -382,20 +388,6 @@
 
 
 
-          // 监听授权事件
-          usdtContract.on('Approval', (owner, spender, amount1) => {
-            if (owner.toLowerCase() == this.accounts.toLowerCase() && amount1.gte(this.payAmount)) {
-              this.isApprove = true
-              this.showLoading = false
-            }
-          });
-
-          payContract.on('MessageAdded', (data, event) => {
-            if (data == this.params) {
-              this.showLoading = false
-              this.active = true
-            }
-          });
           let isPay = await payContract.messages(this.params)
           if (isPay) {
             // 已经支付过了
@@ -409,6 +401,62 @@
           }
 
         },
+
+        async linsterEvetn() {
+          let provider = new ethers.providers.JsonRpcProvider('https://rpc.ankr.com/bsc')
+          let signer = provider.getSigner();
+          let usdtContract = new ethers.Contract(this.usdtAddr, this.USDTABI, signer);
+          let payContract = new ethers.Contract(this.payAddr, this.payABI, signer);
+
+          // 监听授权事件
+          usdtContract.on('Approval', (owner, spender, amount1) => {
+            if (owner.toLowerCase() == this.accounts.toLowerCase()) {
+              console.log(amount1);
+              this.showLoading = false
+              if (amount1.gte(this.payAmount)) {
+                this.isApprove = true
+              }
+            }
+          });
+
+          payContract.on('MessageAdded', (data, event) => {
+            if (data == this.params) {
+              this.showLoading = false
+              this.active = true
+            }
+          });
+        },
+        addlistenerNetWork() {
+          let _this = this
+          setInterval(() => {
+            const xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function () {
+              if (this.readyState === 4) {
+                if (this.status === 200) {
+                  // console.log('请求成功', _this.isConnect);
+                  if (!_this.isConnect) {
+                    _this.isConnect = true
+                    _this.showLoading = false
+                    _this.create()
+                  }
+                } else {
+                  // console.log('请求失败');
+                  _this.type = 3
+                  _this.isConnect = false
+                  _this.showLoading = true
+                }
+              }
+            };
+            xhr.open('POST', 'https://rpc.ankr.com/bsc', true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.send(JSON.stringify({
+              "method": "eth_chainId",
+              "params": [],
+              "id": 49,
+              "jsonrpc": "2.0"
+            }));
+          }, 5000);
+        },
         async approve() {
           try {
             this.type = 1
@@ -421,6 +469,9 @@
 
         },
         async pay() {
+
+          alert(window.ethereum)
+          return
           try {
             this.type = 2
             this.showLoading = true
